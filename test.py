@@ -3,6 +3,8 @@ from datetime import datetime
 
 
 class TestMixin:
+    class_attr = 1
+
     def get_class_attr(self):
         return str(inspect.signature(self.__class__))
 
@@ -12,6 +14,9 @@ class TestMixin:
         print(attr_list)
         values_tuple = tuple(map(lambda x: getattr(instance, x), attr_list))
         return values_tuple
+    
+    def values(self):
+        return list(self.__dict__.values())
 
 
 class Test(TestMixin):
@@ -23,7 +28,12 @@ class Test(TestMixin):
 
 test = Test('hello', 'world', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
-print(test.get_class_attr())
-# print(getattr(test, 'name'))
-# print(inspect.getmembers(test))
-print(test.get_attr_values(test))
+query = {'id': '123'}
+query_op = {'AND': {'id': '123'}}
+test_set = set(['AND', 'OR'])
+
+print(bool(set(query.keys()).intersection(test_set)))
+
+# if query_op.keys() not in ['AND', 'OR']:
+#     print(query_op.keys())
+#     print('trueeee')

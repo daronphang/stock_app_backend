@@ -40,7 +40,6 @@ def generate_jwt_tokens(_id, first_name, last_name, email):
     refresh_tokens_list.append(
         {'_id': _id, 'refresh_token': refresh_token}
     )
-
     return access_token, refresh_token
 
 
@@ -59,7 +58,7 @@ def auth_guard(f):
         token = request.cookies.get('access_token')
         if not token:
             return jsonify({
-                'message': 'NO_ACCESS_TOKEN'
+                'message': 'NO_ACCESS_TOKEN_FOUND_IN_COOKIE'
             }), 401
 
         try:
@@ -73,12 +72,12 @@ def auth_guard(f):
 
         except jwt.InvalidTokenError:
             return jsonify({
-                'message': 'INVALID_TOKEN'
+                'message': 'INVALID_ACCESS_TOKEN'
             }), 401
 
         except jwt.ExpiredSignatureError:
             return jsonify({
-                'message': 'EXPIRED_TOKEN'
+                'message': 'EXPIRED_ACCESS_TOKEN'
             }), 401
         finally:
             return f(*args, **kwargs)

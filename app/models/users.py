@@ -1,4 +1,4 @@
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import check_password_hash
 from app.crud.sql_model import SQLMixin
 
 
@@ -27,7 +27,7 @@ class User(SQLMixin):
         self.firstName = firstName
         self.lastName = lastName
         self.email = email
-        self.password = generate_password_hash(password)
+        self.password = password
         self.createdAt = createdAt
         self.updatedAt = updatedAt
 
