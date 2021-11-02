@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 refresh_tokens_list = []
 
 
-def generate_jwt_tokens(_id, first_name, last_name, email):
+def generate_jwt_tokens(_id, first_name, last_name, email, isRefresh):
     headers = {
         'alg': 'HS256',
         'typ': 'JWT'
@@ -16,7 +16,9 @@ def generate_jwt_tokens(_id, first_name, last_name, email):
 
     payload = {
         "sub": _id,
-        "name": ' '.join([first_name, last_name]),
+        "first_name": first_name,
+        "last_name": last_name,
+        "full_name": ' '.join([first_name, last_name]),
         "email": email,
         "iat": datetime.utcnow(),
         "exp": datetime.utcnow() + timedelta(minutes=60)
@@ -28,6 +30,9 @@ def generate_jwt_tokens(_id, first_name, last_name, email):
             algorithm='HS256',
             headers=headers
     )
+
+    if isRefresh:
+        return access_token
 
     refresh_token = jwt.encode(
             payload=payload,
@@ -58,7 +63,7 @@ def auth_guard(f):
         token = request.cookies.get('access_token')
         if not token:
             return jsonify({
-                'message': 'NO_ACCESS_TOKEN_FOUND_IN_COOKIE'
+                'error': 'NO_ACCESS_TOKEN_FOUND_IN_COOKIE'
             }), 401
 
         try:
@@ -72,14 +77,64 @@ def auth_guard(f):
 
         except jwt.InvalidTokenError:
             return jsonify({
-                'message': 'INVALID_ACCESS_TOKEN'
+                'error': 'INVALID_ACCESS_TOKEN'
             }), 401
 
         except jwt.ExpiredSignatureError:
             return jsonify({
-                'message': 'EXPIRED_ACCESS_TOKEN'
+                'error': 'EXPIRED_ACCESS_TOKEN'
             }), 401
         finally:
             return f(*args, **kwargs)
 
     return check_access_token
+
+
+def refresh_token(f):
+    @wraps(f)
+    def refresh_token_handler(*args, **kwargs):
+        token = request.cookies.get('refresh_token')
+        if not token:
+            return jsonify(
+                {'error': 'NO_REFRESH_TOKEN_FOUND_IN_COOKIE'}
+            ), 401
+
+        try:
+            # Check if refresh token is valid
+            user_payload = jwt.decode(
+                token,
+                current_app.config['REFRESH_SECRET_KEY'],
+                'HS256'
+            )
+
+            # Check if refresh token exists in server database
+            # Needed if admin revoke refresh_token rights
+            list = [
+                True if token_obj['refresh_token'] == token else False
+                for token_obj in refresh_tokens_list
+            ]
+
+            if True not in list:
+                return jsonify({
+                    'error': 'REFRESH_TOKEN_NOT_FOUND_IN_SERVER'
+                }), 401
+
+            # Refresh token is valid; to regenerate access token
+            new_access_token = generate_jwt_tokens(
+                user_payload['sub'],
+                user_payload['first_name'],
+                user_payload['last_name'],
+                user_payload['email'],
+                True
+            )
+            return f(new_access_token, *args, **kwargs)
+
+        except jwt.InvalidTokenError:
+            return jsonify({
+                    'error': 'INVALID_REFRESH_TOKEN'
+                }), 401
+        except jwt.ExpiredSignatureError:
+            return jsonify({
+                    'error': 'EXPIRED_REFRESH_TOKEN'
+                }), 401
+    return refresh_token_handler

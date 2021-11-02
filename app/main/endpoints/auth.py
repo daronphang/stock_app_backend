@@ -1,4 +1,5 @@
 import uuid
+import base64
 from flask import jsonify, after_this_request, request, g, session
 from operator import itemgetter
 from marshmallow import ValidationError
@@ -8,12 +9,10 @@ from app.main import main
 from app.main.utils.auth import (
     generate_jwt_tokens,
     auth_guard,
+    refresh_token,
     refresh_tokens_list
 )
-from app.schemas.schemas import (
-    SignUpSchema,
-    LoginSchema,
-)
+from app.schemas.schemas import SignUpSchema
 from app.models.users import User
 from app.crud.sql_model import sql_find
 
@@ -25,7 +24,7 @@ def signup():
         payload = SignUpSchema().load(request.get_json())
     except ValidationError:
         return jsonify({
-            'message': 'INVALID_SIGNUP_SCHEMA'
+            'error': 'INVALID_SIGNUP_SCHEMA'
         }), 400
 
     firstName, lastName, email, password = itemgetter(
@@ -42,7 +41,7 @@ def signup():
 
     if len(user_exists['results']) > 0:
         return jsonify({
-            'message': 'SIGNUP_USER_ALREADY_EXISTS'
+            'error': 'SIGNUP_USER_ALREADY_EXISTS'
         }), 400
 
     # Create user class and write to database
@@ -70,23 +69,28 @@ def signup():
     })
 
 
-@main.route('/auth/login', methods=['POST'])
+@main.route('/auth/login', methods=['GET'])
 def login():
     # Check if user has already logged in
-    if 'is_logged_in' in session:
-        return jsonify({
-            'message': 'USER_ALREADY_LOGGED_IN'
-        }), 400
+    # if 'is_logged_in' in session:
+    #     return jsonify({
+    #         'message': 'USER_ALREADY_LOGGED_IN'
+    #     }), 400
 
     # Check if schema of payload is correct
-    try:
-        payload = LoginSchema().load(request.get_json())
-    except ValidationError:
-        return jsonify({
-            'message': 'INVALID_LOGIN_SCHEMA'
-        }), 400
 
-    email, password = itemgetter('email', 'password')(payload)
+    # try:
+    #     payload = LoginSchema().load(request.get_json())
+    # except ValidationError:
+    #     return jsonify({
+    #         'message': 'INVALID_LOGIN_SCHEMA'
+    #     }), 400
+    # email, password = itemgetter('email', 'password')(payload)
+
+    credentials_bytes = base64.b64decode(request.headers.get('Authorization'))
+    credentials = credentials_bytes.decode('utf-8').split(' ')[1]
+    email = credentials.split(':')[0]
+    password = credentials.split(':')[1]
 
     # Check if error is thrown or user exists in database
     user_exists = sql_find(None, 'users', {'email': email})
@@ -95,7 +99,7 @@ def login():
 
     if len(user_exists['results']) == 0:
         return jsonify({
-            'message': 'LOGIN_USER_NOT_EXIST'
+            'error': 'LOGIN_USER_NOT_EXIST'
         }), 400
 
     # Create user model from query results
@@ -105,7 +109,7 @@ def login():
 
     if not check_password:
         return jsonify({
-            'message': 'LOGIN_INVALID_PASSWORD'
+            'error': 'LOGIN_INVALID_PASSWORD'
         }), 400
 
     # Generate JWT if password is correct
@@ -113,7 +117,8 @@ def login():
         logged_user._id,
         logged_user.firstName,
         logged_user.lastName,
-        logged_user.email
+        logged_user.email,
+        False
     )
 
     session['is_logged_in'] = True
@@ -139,6 +144,24 @@ def login():
         'name': logged_user.firstName,
         'email': logged_user.email,
     })
+
+
+@main.route('/refresh_token', methods=['GET'])
+@refresh_token
+@auth_guard
+def refresh_token(new_access_token):
+    @after_this_request
+    def modify_cookies(response):
+        response.delete_cookie('access_token')
+        response.set_cookie(
+            'access_token',
+            new_access_token,
+            max_age=3600,
+            httponly=True
+        )
+        return response
+
+    return jsonify({"message": "ACCESS_TOKEN_REFRESHED"})
 
 
 @main.route('/logout', methods=['GET'])

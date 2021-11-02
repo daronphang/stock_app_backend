@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 from config import config
-
+from .main import main as main_blueprint
 
 '''
 Application factory for application package. \
@@ -9,7 +9,11 @@ Delays creation of an app by moving it into a factory function that can be \
 explicitly invoked from script and apply configuration changes.
 '''
 
-cors = CORS()
+cors = CORS(
+    main_blueprint,
+    origins=['http://127.0.0.1:4200', 'http://localhost:4200'],
+    supports_credentials=True
+)
 
 
 def create_app(config_name):
@@ -23,7 +27,6 @@ def create_app(config_name):
 
     # Manually creating app_context to access objects outside of view functions
     with app.app_context():
-        from .main import main as main_blueprint
-        app.register_blueprint(main_blueprint, url_prefix="/daron")
+        app.register_blueprint(main_blueprint)
 
     return app
