@@ -1,5 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
+from flask_marshmallow import Marshmallow
 from config import config
 from .main import main as main_blueprint
 
@@ -15,6 +16,8 @@ cors = CORS(
     supports_credentials=True
 )
 
+ma = Marshmallow()
+
 
 def create_app(config_name):
     app = Flask(__name__)
@@ -24,9 +27,10 @@ def create_app(config_name):
 
     # Initializing extensions after app is created
     cors.init_app(app)
+    ma.init_app(app)
 
     # Manually creating app_context to access objects outside of view functions
     with app.app_context():
-        app.register_blueprint(main_blueprint)
+        app.register_blueprint(main_blueprint, url_prefix='/daron')
 
     return app

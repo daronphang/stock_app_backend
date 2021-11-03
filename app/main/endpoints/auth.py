@@ -15,17 +15,20 @@ from app.main.utils.auth import (
 from app.schemas.schemas import SignUpSchema
 from app.models.users import User
 from app.crud.sql_model import sql_find
+from app.main.errors import (
+    forbidden_error,
+    validation_error,
+    unauthorized_error,
+)
 
 
 @main.route('/auth/signup', methods=['POST'])
 def signup():
     # Check if schema of payload is correct
     try:
-        payload = SignUpSchema().load(request.get_json())
+        payload = SignUpSchema().load(g.payload)
     except ValidationError:
-        return jsonify({
-            'error': 'INVALID_SIGNUP_SCHEMA'
-        }), 400
+        return validation_error('SIGNUP_SCHEMA_INVALID')
 
     firstName, lastName, email, password = itemgetter(
         'firstName',
@@ -40,9 +43,7 @@ def signup():
         return jsonify(user_exists), 400
 
     if len(user_exists['results']) > 0:
-        return jsonify({
-            'error': 'SIGNUP_USER_ALREADY_EXISTS'
-        }), 400
+        return forbidden_error('SIGNUP_USER_ALREADY_EXISTS')
 
     # Create user class and write to database
     new_user = User(
@@ -79,28 +80,21 @@ def login():
 
     # Check if schema of payload is correct
 
-    # try:
-    #     payload = LoginSchema().load(request.get_json())
-    # except ValidationError:
-    #     return jsonify({
-    #         'message': 'INVALID_LOGIN_SCHEMA'
-    #     }), 400
-    # email, password = itemgetter('email', 'password')(payload)
-
-    credentials_bytes = base64.b64decode(request.headers.get('Authorization'))
-    credentials = credentials_bytes.decode('utf-8').split(' ')[1]
+    credentials_bytes = base64.b64decode(
+        request.headers.get('Authorization').split(' ')[1]
+    )
+    credentials = credentials_bytes.decode('utf-8')
     email = credentials.split(':')[0]
     password = credentials.split(':')[1]
 
-    # Check if error is thrown or user exists in database
+    # Check if error is thrown while executing query
     user_exists = sql_find(None, 'users', {'email': email})
     if 'error' in user_exists:
-        return jsonify(user_exists), 400
+        return unauthorized_error(user_exists['message'])
 
+    # Check if user does not exist in database
     if len(user_exists['results']) == 0:
-        return jsonify({
-            'error': 'LOGIN_USER_NOT_EXIST'
-        }), 400
+        return unauthorized_error('LOGIN_USER_NOT_EXIST')
 
     # Create user model from query results
     # Check if password is correct
@@ -108,9 +102,7 @@ def login():
     check_password = logged_user.verify_password(password)
 
     if not check_password:
-        return jsonify({
-            'error': 'LOGIN_INVALID_PASSWORD'
-        }), 400
+        return unauthorized_error('LOGIN_INVALID_PASSWORD')
 
     # Generate JWT if password is correct
     token_tuple = generate_jwt_tokens(

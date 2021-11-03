@@ -1,7 +1,8 @@
 import jwt
 from functools import wraps
-from flask import request, jsonify, current_app, g
+from flask import request, current_app, g
 from datetime import datetime, timedelta
+from app.main.errors import unauthorized_error, forbidden_error
 
 # Server-side storage of refresh tokens
 # dict {'_id': _id, 'refresh_token': token}
@@ -62,9 +63,7 @@ def auth_guard(f):
     def check_access_token(*args, **kwargs):
         token = request.cookies.get('access_token')
         if not token:
-            return jsonify({
-                'error': 'NO_ACCESS_TOKEN_FOUND_IN_COOKIE'
-            }), 401
+            return unauthorized_error('NO_ACCESS_TOKEN_FOUND_IN_COOKIE')
 
         try:
             user_payload = jwt.decode(
@@ -76,14 +75,11 @@ def auth_guard(f):
             g.user_payload = user_payload
 
         except jwt.InvalidTokenError:
-            return jsonify({
-                'error': 'INVALID_ACCESS_TOKEN'
-            }), 401
+            return unauthorized_error('INVALID_ACCESS_TOKEN')
 
         except jwt.ExpiredSignatureError:
-            return jsonify({
-                'error': 'EXPIRED_ACCESS_TOKEN'
-            }), 401
+            return unauthorized_error('EXPIRED_ACCESS_TOKEN')
+
         finally:
             return f(*args, **kwargs)
 
@@ -95,9 +91,7 @@ def refresh_token(f):
     def refresh_token_handler(*args, **kwargs):
         token = request.cookies.get('refresh_token')
         if not token:
-            return jsonify(
-                {'error': 'NO_REFRESH_TOKEN_FOUND_IN_COOKIE'}
-            ), 401
+            return unauthorized_error('NO_REFRESH_TOKEN_FOUND_IN_COOKIE')
 
         try:
             # Check if refresh token is valid
@@ -115,9 +109,7 @@ def refresh_token(f):
             ]
 
             if True not in list:
-                return jsonify({
-                    'error': 'REFRESH_TOKEN_NOT_FOUND_IN_SERVER'
-                }), 401
+                return forbidden_error('REFRESH_TOKEN_NOT_FOUND_IN_SERVER')
 
             # Refresh token is valid; to regenerate access token
             new_access_token = generate_jwt_tokens(
@@ -130,11 +122,9 @@ def refresh_token(f):
             return f(new_access_token, *args, **kwargs)
 
         except jwt.InvalidTokenError:
-            return jsonify({
-                    'error': 'INVALID_REFRESH_TOKEN'
-                }), 401
+            return unauthorized_error('INVALID_REFRESH_TOKEN')
+
         except jwt.ExpiredSignatureError:
-            return jsonify({
-                    'error': 'EXPIRED_REFRESH_TOKEN'
-                }), 401
+            return unauthorized_error('EXPIRED_REFRESH_TOKEN')
+
     return refresh_token_handler
