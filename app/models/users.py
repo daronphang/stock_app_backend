@@ -15,8 +15,6 @@ class User(SQLMixin):
         lastName,
         email,
         password,
-        createdAt,
-        updatedAt
     ):
         self._id = _id
         self.isOAuth = isOAuth
@@ -28,8 +26,6 @@ class User(SQLMixin):
         self.lastName = lastName
         self.email = email
         self.password = password
-        self.createdAt = createdAt
-        self.updatedAt = updatedAt
 
     def verify_password(self, password):
         return check_password_hash(self.password, password)

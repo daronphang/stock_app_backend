@@ -3,7 +3,6 @@ import base64
 from flask import jsonify, after_this_request, request, g, session
 from operator import itemgetter
 from marshmallow import ValidationError
-from datetime import datetime
 from werkzeug.security import generate_password_hash
 from app.main import main
 from app.main.utils.auth import (
@@ -17,6 +16,7 @@ from app.models.users import User
 from app.crud.sql_model import sql_find
 from app.main.errors import (
     forbidden_error,
+    internal_server_error,
     validation_error,
     unauthorized_error,
 )
@@ -26,7 +26,7 @@ from app.main.errors import (
 def signup():
     # Check if schema of payload is correct
     try:
-        payload = SignUpSchema().load(g.payload)
+        payload = SignUpSchema().load(g.request_payload)
     except ValidationError:
         return validation_error('SIGNUP_SCHEMA_INVALID')
 
@@ -37,12 +37,13 @@ def signup():
         'password'
     )(payload)
 
-    # Check if error is thrown or user already exists in database
+    # Check if error is thrown while executing connecting/executing cursor
     user_exists = sql_find(None, 'users', {'email': email})
     if 'error' in user_exists:
-        return jsonify(user_exists), 400
+        return internal_server_error(user_exists['error'])
 
-    if len(user_exists['results']) > 0:
+    # # Check if user exists in database
+    if user_exists['row_count'] > 0:
         return forbidden_error('SIGNUP_USER_ALREADY_EXISTS')
 
     # Create user class and write to database
@@ -57,17 +58,17 @@ def signup():
         lastName,
         email,
         generate_password_hash(password),
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        # datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        # datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     )
 
     entries = [new_user.get_class_attr_values()]
-    results = new_user.sql_insert('users', entries)
+    rv = new_user.sql_insert('users', None, entries)
 
-    return jsonify({
-        'message': 'SIGNUP_USER_SUCCESSFUL',
-        'error': results['error'] if 'error' in results else None
-    })
+    if 'error' in rv:
+        return internal_server_error(rv['error'])
+    rv['message'] = 'SIGNUP_USER_SUCCESSFUL'
+    return jsonify(rv)
 
 
 @main.route('/auth/login', methods=['GET'])
@@ -90,15 +91,18 @@ def login():
     # Check if error is thrown while executing query
     user_exists = sql_find(None, 'users', {'email': email})
     if 'error' in user_exists:
-        return unauthorized_error(user_exists['message'])
+        return internal_server_error(user_exists['error'])
 
     # Check if user does not exist in database
-    if len(user_exists['results']) == 0:
+    if user_exists['row_count'] == 0:
         return unauthorized_error('LOGIN_USER_NOT_EXIST')
 
     # Create user model from query results
     # Check if password is correct
-    logged_user = User(*user_exists['results'][0].values())
+    user_values = list(user_exists['results'][0].values())
+    # remove createdAt and updatedAt fields
+    del user_values[-2:]
+    logged_user = User(*user_values)
     check_password = logged_user.verify_password(password)
 
     if not check_password:

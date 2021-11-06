@@ -11,6 +11,6 @@ main = Blueprint('main', __name__)
 # To import modules at bottom to avoid circular dependency
 # Both views/errors are in turn going to import the main blueprint object
 
-from app.main.endpoints import auth
+from app.main.endpoints import auth, portfolio
 from app.main import errors
 from app.main import hooks

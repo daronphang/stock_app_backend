@@ -48,7 +48,7 @@ class TestingConfig(Config):
         import logging
         from flask.logging import default_handler
 
-        app.logger.removehandler(default_handler)
+        app.logger.removeHandler(default_handler)
         app.logger.setLevel(logging.INFO)
         formatter = RequestFormatter(
             '[%(asctime)s] %(username)s %(levelname)s in %(module)s: '
@@ -72,7 +72,7 @@ class ProductionConfig(Config):
         import logging
         from flask.logging import default_handler
 
-        app.logger.removehandler(default_handler)
+        app.logger.removeHandler(default_handler)
         app.logger.setLevel(logging.INFO)
         formatter = RequestFormatter(
             '[%(asctime)s] %(username)s %(levelname)s in %(module)s: '

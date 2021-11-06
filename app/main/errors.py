@@ -48,7 +48,7 @@ def endpoint_not_found_error(e):
     }), 404
 
 
-@main.errorhandler(500)
+@main.app_errorhandler(500)
 def internal_server_error(e):
     current_app.logger.error(e)
     return jsonify({
