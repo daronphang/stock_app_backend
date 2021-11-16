@@ -33,8 +33,8 @@ def sql_connection(is_dict):
 # Query key/values in dict format
 # default operators are AND and '=' unless specified in query
 @sql_connection(True)
-def sql_find(self, cursor, table: str, query: dict):
-    sql_string, values = sql_query_formatter(table, query)
+def sql_find(self, cursor, col: str, table: str, query: dict):
+    sql_string, values = sql_query_formatter(col, table, query)
     cursor.execute(sql_string, tuple(values))
     if cursor.with_rows:
         return {

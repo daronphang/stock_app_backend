@@ -37,16 +37,7 @@ def signup():
         'password'
     )(payload)
 
-    # Check if error is thrown while executing connecting/executing cursor
-    user_exists = sql_find(None, 'users', {'email': email})
-    if 'error' in user_exists:
-        return internal_server_error(user_exists['error'])
-
-    # # Check if user exists in database
-    if user_exists['row_count'] > 0:
-        return forbidden_error('SIGNUP_USER_ALREADY_EXISTS')
-
-    # Create user class and write to database
+    # Create new user
     new_user = User(
         str(uuid.uuid4()),
         0,
@@ -62,12 +53,11 @@ def signup():
         # datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
     )
 
-    entries = [new_user.get_class_attr_values()]
-    rv = new_user.sql_insert('users', None, entries)
-
+    rv = new_user.signup()
     if 'error' in rv:
         return internal_server_error(rv['error'])
-    rv['message'] = 'SIGNUP_USER_SUCCESSFUL'
+    if rv['message'] == 'USER_EXISTS':
+        return forbidden_error('SIGNUP_USER_ALREADY_EXISTS')
     return jsonify(rv)
 
 
@@ -81,15 +71,24 @@ def login():
 
     # Check if schema of payload is correct
 
+    # For Postman
+    # credentials_bytes = base64.b64decode(
+    #     request.headers.get('Authorization').split(' ')[1]
+    # )
+    # credentials = credentials_bytes.decode('utf-8')
+    # email = credentials.split(':')[0]
+    # password = credentials.split(':')[1]
+
+    # For Chrome
     credentials_bytes = base64.b64decode(
-        request.headers.get('Authorization').split(' ')[1]
+        request.headers.get('Authorization')
     )
     credentials = credentials_bytes.decode('utf-8')
-    email = credentials.split(':')[0]
-    password = credentials.split(':')[1]
+    email = credentials.split(' ')[1].split(':')[0]
+    password = credentials.split(' ')[1].split(':')[1]
 
     # Check if error is thrown while executing query
-    user_exists = sql_find(None, 'users', {'email': email})
+    user_exists = sql_find(None, '*', 'users', {'email': email})
     if 'error' in user_exists:
         return internal_server_error(user_exists['error'])
 
