@@ -1,0 +1,15 @@
+__pycache__/
+venv/
+coverage/
+
+.git
+.gitignore
+.vscode
+.env
+
+*.log
+**/.ssh
+
+Dockerfile
+README.md
+docker-compose.yml

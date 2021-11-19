@@ -2,7 +2,6 @@ from werkzeug.security import check_password_hash
 from app.crud.sql_model import SQLMixin, sql_connection
 from app.crud.utils.sql_string_formatter import (
     sql_query_formatter,
-    sql_insert_formatter
 )
 
 
@@ -49,12 +48,12 @@ class User(SQLMixin):
                 return {
                     "message": "USER_EXISTS"
                 }
-        sql_insert, insert_values = sql_insert_formatter(
-            'users',
+        placeholder_str = len(self.get_class_attr_values()) * '%s,'
+        insert_str = 'INSERT INTO users {} VALUES ({})'.format(
             self.get_class_attr(),
-            self.get_class_attr_values()
+            placeholder_str[:-1]
         )
-        cursor.execute(sql_insert, insert_values)
+        cursor.execute(insert_str, self.get_class_attr_values())
         return {
             'message': 'CREATE_USER_SUCCESSFUL',
             'statement': cursor.statement

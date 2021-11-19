@@ -1,4 +1,5 @@
 import inspect
+import traceback
 from functools import wraps
 from app.crud.utils.sql_connection import MySQLDBConnectionSession
 from app.crud.utils.sql_string_formatter import (
@@ -20,10 +21,11 @@ def sql_connection(is_dict):
                     results = f(self, cursor, *args, **kwargs)
                     conn.commit()
                     return results
-                except Exception as e:
+                except Exception:
                     conn.rollback()
+                    tb = traceback.format_exc()
                     return {
-                        'error': str(e)
+                        'error': str(tb)
                     }
         return wrapper
     return inner_decorator

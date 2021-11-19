@@ -141,6 +141,16 @@ def login():
     })
 
 
+@main.route('/verify-logged-status', methods=['GET'])
+@auth_guard
+def verify_logged_status():
+    return jsonify({
+        'message': 'LOGGED_USER_VALID',
+        'name': g.user_payload['first_name'],
+        'email': g.user_payload['email']
+    })
+
+
 @main.route('/refresh_token', methods=['GET'])
 @refresh_token
 @auth_guard
